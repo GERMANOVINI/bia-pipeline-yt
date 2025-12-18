@@ -1,50 +1,22 @@
-########################################
-# STAGE 1 — Build do frontend (React)
-########################################
-FROM node:18-slim AS frontend-build
+FROM node:21-slim
 
-WORKDIR /app/client
-
-# Copia apenas o necessário para cache
-COPY client/package*.json ./
-RUN npm install
-
-# Copia o restante do frontend
-COPY client/ ./
-
-# Variáveis de build do React
-ENV REACT_APP_API_URL=http://localhost:3001
-ENV SKIP_PREFLIGHT_CHECK=true
-
-# Build do React
-RUN npm run build
-
-########################################
-# STAGE 2 — Build do backend (Node)
-########################################
-FROM node:18-slim AS backend-build
-
-WORKDIR /app
+RUN npm install -g npm@latest --loglevel=error
+WORKDIR /usr/src/app
 
 COPY package*.json ./
-RUN npm install --only=production
+
+RUN npm install --loglevel=error
 
 COPY . .
 
-########################################
-# STAGE 3 — Imagem final (runtime)
-########################################
-FROM node:18-slim
+RUN REACT_APP_API_URL=http://localhost:3001 SKIP_PREFLIGHT_CHECK=true npm run build --prefix client
 
-WORKDIR /app
+RUN mv client/build build
 
-# Copia backend pronto
-COPY --from=backend-build /app /app
+RUN rm  -rf client/*
 
-# Copia build do frontend para servir estático
-COPY --from=frontend-build /app/client/build /app/client/build
+RUN mv build client/
 
-# Porta padrão do Elastic Beanstalk
 EXPOSE 8080
 
-CMD ["npm", "start"]
+CMD [ "npm", "start" ]
